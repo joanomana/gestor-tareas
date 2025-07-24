@@ -1,47 +1,49 @@
 import inquirer from 'inquirer';
-import { obtenerTareas, guardarTareas } from './db.js';
 import _ from 'lodash';
 import chalk from 'chalk';
+import {
+  obtenerTareas,
+  guardarTareas,
+  actualizarTarea,
+  eliminarTarea,
+  buscarTareasPorDescripcion
+} from '../data/db.js';
 
-
-export async function agregarTarea() {
+export async function agregarTarea()  {
   console.log();
-  const tareas = obtenerTareas();
+  const tareas = await obtenerTareas();
 
   const { descripcion } = await inquirer.prompt([
-    { type: 'input', name: 'descripcion', message: 'Descripción de la tarea:', validate: function(input) {
-      if (_.isEmpty(_.trim(input))) {
-        return '⚠️ La descripción no puede estar vacía.';
-      }else if (_.some(tareas, { descripcion: _.trim(input) })) {
-        return '⚠️ Ya existe una tarea con esa descripción.';
+    {
+      type: 'input',
+      name: 'descripcion',
+      message: 'Descripción de la tarea:',
+      validate: input => {
+        const desc = _.trim(input);
+        if (_.isEmpty(desc)) return '⚠️ La descripción no puede estar vacía.';
+        if (_.some(tareas, { descripcion: desc })) return '⚠️ Ya existe una tarea con esa descripción.';
+        return true;
       }
-      return true;
-    }}
+    }
   ]);
 
-  tareas.push({
-    id: _.uniqueId('tarea_'),
+  await guardarTareas({
     descripcion: _.trim(descripcion),
     completada: false
   });
 
-  const tareasUnicas = _.uniqBy(tareas, 'descripcion');
-
-  guardarTareas(tareasUnicas);
-  console.log(chalk.green('✅ Tarea agregada.'));
-  console.log();
+  console.log(chalk.green('✅ Tarea agregada.\n'));
 }
 
-export function listarTareas() {
+export async function listarTareas() {
   console.log();
-  const tareas = obtenerTareas();
+  const tareas = await obtenerTareas();
 
   if (_.isEmpty(tareas)) return console.log('📭 No hay tareas registradas.');
 
   const tareasOrdenadas = _.orderBy(tareas, ['completada', 'descripcion'], ['asc', 'asc']);
 
   console.log(chalk.blue('\n📋 Lista de tareas:'));
-  console.log();
   tareasOrdenadas.forEach((t, i) => {
     const estado = t.completada ? '✅' : '❌';
     console.log(`${i + 1}. [${estado}] ${chalk.white(t.descripcion)}`);
@@ -49,9 +51,9 @@ export function listarTareas() {
   console.log();
 }
 
-export function listarTareasAgrupadas() {
+export async function listarTareasAgrupadas() {
   console.log();
-  const tareas = obtenerTareas();
+  const tareas = await obtenerTareas();
 
   if (_.isEmpty(tareas)) return console.log('📭 No hay tareas registradas.');
 
@@ -70,9 +72,6 @@ export function listarTareasAgrupadas() {
 
 export async function buscarTareas() {
   console.log();
-  const tareas = obtenerTareas();
-  if (_.isEmpty(tareas)) return console.log('📭 No hay tareas registradas.');
-
   const { termino } = await inquirer.prompt([
     {
       type: 'input',
@@ -82,7 +81,7 @@ export async function buscarTareas() {
     }
   ]);
 
-  const resultado = _.filter(tareas, t => _.includes(_.toLower(t.descripcion), _.toLower(termino)));
+  const resultado = await buscarTareasPorDescripcion(termino);
 
   if (_.isEmpty(resultado)) {
     console.log(chalk.yellow('🔍 No se encontraron coincidencias.'));
@@ -95,22 +94,17 @@ export async function buscarTareas() {
   }
 }
 
-
-
 export async function editarTarea() {
   console.log();
-  const tareas = obtenerTareas();
-  if (tareas.length === 0) return console.log('⚠️ No hay tareas para editar.');
+  const tareas = await obtenerTareas();
+  if (_.isEmpty(tareas)) return console.log('⚠️ No hay tareas para editar.');
 
-  const { indice } = await inquirer.prompt([
+  const { id } = await inquirer.prompt([
     {
       type: 'list',
-      name: 'indice',
+      name: 'id',
       message: 'Selecciona una tarea para editar:',
-      choices: tareas.map((t, i) => ({
-        name: t.descripcion,
-        value: i
-      }))
+      choices: tareas.map(t => ({ name: t.descripcion, value: t._id }))
     }
   ]);
 
@@ -118,59 +112,56 @@ export async function editarTarea() {
     { type: 'input', name: 'nuevaDescripcion', message: 'Nueva descripción:' }
   ]);
 
-  tareas[indice].descripcion = nuevaDescripcion.trim();
-  guardarTareas(tareas);
+  await actualizarTarea(id, { descripcion: _.trim(nuevaDescripcion) });
+
   console.log(chalk.cyan('✏️ Tarea actualizada.'));
 }
 
-export async function eliminarTarea() {
+export async function eliminarTareaController() {
   console.log();
-  const tareas = obtenerTareas();
-  if (tareas.length === 0) return console.log(chalk.yellow('⚠️ No hay tareas para eliminar.'));
+  const tareas = await obtenerTareas();
+  if (_.isEmpty(tareas)) return console.log(chalk.yellow('⚠️ No hay tareas para eliminar.'));
 
-  const { indice } = await inquirer.prompt([
+  const { id } = await inquirer.prompt([
     {
       type: 'list',
-      name: 'indice',
+      name: 'id',
       message: 'Selecciona una tarea para eliminar:',
-      choices: tareas.map((t, i) => ({
-        name: t.descripcion,
-        value: i
-      }))
+      choices: tareas.map(t => ({ name: t.descripcion, value: t._id }))
     }
   ]);
 
-  tareas.splice(indice, 1);
-  guardarTareas(tareas);
+  await eliminarTarea(id);
+
   console.log(chalk.red('🗑️ Tarea eliminada.'));
 }
 
 export async function modificarEstadoTarea() {
   console.log();
-  const tareas = obtenerTareas();
-  if (tareas.length === 0) return console.log(chalk.yellow('⚠️ No hay tareas para modificar.'));
+  const tareas = await obtenerTareas();
+  console.log(typeof tareas);
+  if (_.isEmpty(tareas)) return console.log(chalk.yellow('⚠️ No hay tareas para modificar.'));
 
-  const { indice } = await inquirer.prompt([
+  const { id } = await inquirer.prompt([
     {
       type: 'list',
-      name: 'indice',
-      message: 'Selecciona una tarea para modificar su estado:',
-      choices: tareas.map((t, i) => ({
-        name: t.descripcion,
-        value: i
-      }))
+      name: 'id',
+      message: 'Selecciona una tarea para cambiar su estado:',
+      choices: tareas.map(t => ({ name: t.descripcion, value: t._id.toString() }))
     }
   ]);
-  const {estado} = await inquirer.prompt([
+
+  const tareaSeleccionada = tareas.find(t => t._id.toString() === id);
+  const { estado } = await inquirer.prompt([
     {
       type: 'confirm',
       name: 'estado',
-      message: `¿Marcar la tarea "${tareas[indice].descripcion}" como completada?`,
-      default: tareas[indice].completada
+      message: `¿Marcar la tarea "${tareaSeleccionada.descripcion}" como completada?`,
+      default: tareaSeleccionada.completada
     }
   ]);
 
-  tareas[indice].completada = estado;
-  guardarTareas(tareas);
-  console.log(chalk.green(`✅ Estado de la tarea "${tareas[indice].descripcion}" modificado a ${tareas[indice].completada ? 'completada' : 'pendiente'}.`));
+  await actualizarTarea(id, { completada: estado });
+
+  console.log(chalk.green(`✅ Estado de la tarea "${tareaSeleccionada.descripcion}" modificado a ${estado ? 'completada' : 'pendiente'}.`));
 }
