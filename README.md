@@ -20,6 +20,19 @@
 Tomando como base un sistema de gestión de tareas por consola ya funcional (que se te entregará), debes **refactorizar y mejorar el proyecto** cumpliendo con las siguientes condiciones:
 
 ---
+# **Instalacion**
+
+### Para instalar las dependencias necesarias una vez clonado el repositorio, se debe ejecutar el siguiente comando 
+``` bash
+npm i
+```
+
+### Luego para su ejecucion se ejecuta el siguiente comando
+
+```bash
+node index.js
+```
+
 
 ### **Actividades requeridas**
 
