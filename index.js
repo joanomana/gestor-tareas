@@ -1,5 +1,5 @@
 import mostrarMenu from './utils/menu.js';
-import { listarTareas, agregarTarea, editarTarea, eliminarTarea } from './controllers/tareasController.js';
+import { listarTareas, agregarTarea, editarTarea, eliminarTarea, modificarEstadoTarea, listarTareasAgrupadas,buscarTareas} from './controllers/tareasController.js';
 
 async function main() {
   let salir = false;
@@ -15,12 +15,21 @@ async function main() {
         listarTareas();
         break;
       case '3':
-        await editarTarea();
+        listarTareasAgrupadas();
         break;
       case '4':
-        await eliminarTarea();
+        await editarTarea();
         break;
       case '5':
+        await modificarEstadoTarea();
+        break;
+      case '6':
+        await eliminarTarea();
+        break;
+      case '7':
+        await buscarTareas();
+        break;
+      case '8':
         salir = true;
         console.log('👋 ¡Hasta pronto!');
         break;
